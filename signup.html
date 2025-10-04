@@ -4,6 +4,14 @@
   <meta charset="utf-8"/>
   <title>Sign Up - Track Wheelz</title>
   <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ✅ Make email and password boxes the same size */
+    input[type="email"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -15,58 +23,57 @@
       <a href="map.html">Map</a>
     </nav>
   </header>
+
   <div class="container">
     <h2>Create Account</h2>
     <form id="signupForm">
-      <label for="username">Choose a Username</label>
-      <input type="text" id="username" name="username" required/>
+      <label for="email">Email</label>
+      <input type="email" id="email" required/>
 
-      <label for="password">Choose a Password</label>
-      <input type="password" id="password" name="password" required/>
+      <label for="password">Password</label>
+      <input type="password" id="password" required/>
 
       <button type="submit">Sign Up</button>
     </form>
-    <p id="status" style="margin-top:10px; color:green;"></p>
+    <p id="status" style="margin-top:10px;"></p>
   </div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
+      authDomain: "trackwheelz.firebaseapp.com",
+      projectId: "trackwheelz",
+      storageBucket: "trackwheelz.firebasestorage.app",
+      messagingSenderId: "902612651501",
+      appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
+      measurementId: "G-QSCJ3V0KJL"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const form = document.getElementById("signupForm");
     const status = document.getElementById("status");
 
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
 
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
-
-      if (!username || !password) {
-        status.style.color = "red";
-        status.textContent = "Please fill in both fields.";
-        return;
-      }
-
-      // Check if username already exists
-      if (localStorage.getItem("user_" + username)) {
-        status.style.color = "red";
-        status.textContent = "Username already taken. Try another.";
-        return;
-      }
-
-      // Save user account (simple localStorage version)
-      const userData = {
-        username: username,
-        password: password,
-        points: 0
-      };
-      localStorage.setItem("user_" + username, JSON.stringify(userData));
-
-      status.style.color = "green";
-      status.textContent = "Account created! Redirecting to login...";
-
-      setTimeout(() => {
-        window.location.href = "login.html";
-      }, 1500);
+      createUserWithEmailAndPassword(auth, email, password)
+        .then(() => {
+          status.style.color = "green";
+          status.textContent = "Account created! Redirecting...";
+          setTimeout(() => window.location.href = "login.html", 1500);
+        })
+        .catch((error) => {
+          status.style.color = "red";
+          status.textContent = error.message;
+        });
     });
   </script>
 </body>
 </html>
+
