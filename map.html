@@ -1,0 +1,197 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Map - Track Wheelz</title>
+<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f9f9f9; }
+header { background: #0066cc; color: white; padding: 10px; text-align: center; }
+nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; }
+.container { padding: 20px; max-width: 900px; margin: auto; }
+#map { width: 100%; height: 400px; border: 3px solid #0066cc; border-radius: 12px; margin-top: 15px; }
+#stats { background: #ffeb99; border: 4px solid #ff6600; padding: 15px; border-radius: 15px; margin-bottom: 20px; text-align: center; }
+#progressBar { background: #ddd; border-radius: 12px; overflow: hidden; margin: 10px auto; height: 25px; width: 90%; }
+#progressFill { background: #00cc66; height: 100%; width: 0%; transition: width 0.5s; }
+#tiersPanel { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
+.tierBox { width: 120px; padding: 10px; border-radius: 12px; text-align: center; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; background: #ccc; color: #666; }
+.tierCompleted { background: #66cc66; color: white; }
+.tierCurrent { background: #ffcc33; color: #222; }
+.tierLocked { background: #ccc; color: #666; }
+.carIcon { font-size: 24px; line-height: 24px; text-align: center; }
+.treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; }
+#codesPanel { display:none; }
+#codePopup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #cce6ff; border: 3px solid #3399ff; border-radius: 20px; padding: 20px 30px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 9999; color: #333; font-weight: bold; max-width: 90%; }
+#codePopup h2 { margin: 0 0 10px 0; color: #1582ee; }
+#codePopup p { margin: 5px 0; font-size: 16px; }
+#codePopup ul { list-style: none; padding: 0; margin: 10px 0 0 0; }
+#codePopup ul li { background: #fff0ff; margin: 3px 0; padding: 5px 10px; border-radius: 10px; }
+#popupMessage { margin-top: 10px; font-weight: bold; color: #d35400; }
+#codePopup button { margin-top: 10px; padding: 5px 15px; border: none; background: #ff66cc; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
+#codePopup button:hover { background: #406be4; }
+</style>
+</head>
+<body>
+<header>
+<h1>Track Wheelz</h1>
+<nav>
+<a href="index.html">Home</a>
+<a href="login.html" id="loginLink">Login</a>
+<a href="map.html">Map</a>
+<a href="#" id="logoutLink" style="display:none;">Logout</a>
+</nav>
+</header>
+
+<div class="container">
+<h2 id="welcomeMsg">Welcome!</h2>
+
+<div id="stats">
+<p style="font-size: 20px;">⭐ Points: <span id="points">0</span></p>
+<p style="font-size: 20px;">🏁 Level: <span id="level">1</span></p>
+<div id="progressBar"><div id="progressFill"></div></div>
+<p id="nextLevelText"></p>
+</div>
+
+<div id="tiersPanel"></div>
+
+<div id="map"></div>
+<p style="text-align:center;">Double-click a treasure chest 🗝️ to reveal your codes!</p>
+</div>
+
+<div id="codePopup">
+<h2 id="popupBoxName"></h2>
+<p id="popupUserCode"></p>
+<ul id="popupOtherCodes"></ul>
+<p id="popupMessage"></p>
+<button onclick="document.getElementById('codePopup').style.display='none'">Close</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// --- Auth ---
+const loginLink = document.getElementById("loginLink");
+const logoutLink = document.getElementById("logoutLink");
+const user = localStorage.getItem("hotwheelsUser");
+if (!user) window.location.href = "login.html";
+else {
+  document.getElementById("welcomeMsg").textContent = `Welcome, ${user}!`;
+  loginLink.style.display = "none";
+  logoutLink.style.display = "inline";
+}
+logoutLink.addEventListener("click", () => {
+  localStorage.removeItem("hotwheelsUser");
+  window.location.href = "index.html";
+});
+
+// --- User Data ---
+function getUserData(username) {
+  const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
+  if (!data[username]) data[username] = { points: 0, level: 1, claimedTiers: {} };
+  return data[username];
+}
+function saveUserData(username, stats) {
+  const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
+  data[username] = stats;
+  localStorage.setItem("hotwheelsData", JSON.stringify(data));
+}
+const stats = getUserData(user);
+
+// --- Stats ---
+function updateStatsUI() {
+  document.getElementById("points").textContent = stats.points;
+  document.getElementById("level").textContent = stats.level;
+  const needed = stats.level * 200;
+  const progress = Math.min((stats.points / needed) * 100, 100);
+  document.getElementById("progressFill").style.width = progress + "%";
+  document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
+  updateTiersPanel();
+  saveUserData(user, stats);
+}
+
+// --- Tiers ---
+const tiers = [];
+for (let i = 0; i < 8; i++) {
+  const start = i*8 + 1, end = start+7;
+  tiers.push({ tier: i+1, start, end });
+}
+function updateTiersPanel() {
+  const panel = document.getElementById("tiersPanel");
+  panel.innerHTML = "";
+  tiers.forEach(t=>{
+    const box = document.createElement("div");
+    if (stats.level > t.end) box.className = "tierBox tierCompleted";
+    else if (stats.level >= t.start && stats.level <= t.end) box.className = "tierBox tierCurrent";
+    else box.className = "tierBox tierLocked";
+    box.innerHTML = `Tier ${t.tier}<br>(Lv ${t.start}-${t.end})`;
+    panel.appendChild(box);
+  });
+}
+
+// --- Map & Boxes ---
+const locations = [
+  { name:"Park Entrance", coords:[34.0007,-81.0348], boxes:[{id:"box1",name:"Lock Box",codes:["1111","2222","3333","4444","5555","6666","7777","8888"]}]},
+  { name:"Home Base", coords:[34.24388,-80.8128805], boxes:[{id:"box2",name:"Lock Box",codes:["7777","8888","9999","0000","1111","2222","3333","4444"], exactCoords:[34.24388,-80.8128805]}]}
+];
+
+const map = L.map('map').setView([34.0007,-81.0348],15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+const carIcon = L.divIcon({className:"carIcon", html:"🚙", iconSize:[24,24], iconAnchor:[12,12]});
+const treasureIcon = L.divIcon({className:"treasureIcon", html:"💰", iconSize:[22,22], iconAnchor:[11,11]});
+
+let userMarker = null;
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(pos=>{
+    const lat=pos.coords.latitude, lng=pos.coords.longitude;
+    if(!userMarker) userMarker=L.marker([lat,lng],{icon:carIcon}).addTo(map).bindPopup("📍 You are here");
+    else userMarker.setLatLng([lat,lng]);
+    map.setView([lat,lng]);
+  });
+}
+
+// --- Lockbox Logic ---
+locations.forEach(loc=>{
+  loc.boxes.forEach((box,i)=>{
+    const boxCoords = box.exactCoords || [
+      loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),
+      loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
+    ];
+    const marker = L.marker(boxCoords,{icon:treasureIcon}).addTo(map);
+    marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
+    marker.on("dblclick",()=>{
+      if(!stats.claimedTiers[box.id]) stats.claimedTiers[box.id]=[];
+
+      const tierIndex = Math.floor((stats.level-1)/8);
+      const ul = document.getElementById('popupOtherCodes');
+      ul.innerHTML='';
+
+      // Show all previous tier codes
+      box.codes.forEach((code,t)=>{
+        if(t <= tierIndex) ul.innerHTML += `<li>Tier ${t+1} Code: ${code}</li>`;
+      });
+
+      let message='';
+      if(!stats.claimedTiers[box.id].includes(tierIndex)){
+        stats.claimedTiers[box.id].push(tierIndex);
+        stats.points +=50;
+        message=`🎉 You earned 50 points for Tier ${tierIndex+1}!`;
+      } else {
+        message="⚠️ You already opened this box for this tier. Come back when you reach the next tier.";
+      }
+
+      document.getElementById('popupBoxName').textContent=`${box.name} @ ${loc.name}`;
+      document.getElementById('popupUserCode').textContent=`🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
+      document.getElementById('popupMessage').textContent = message;
+
+      document.getElementById('codePopup').style.display='block';
+      updateStatsUI();
+      saveUserData(user,stats);
+    });
+  });
+});
+
+updateStatsUI();
+</script>
+</body>
+</html>
