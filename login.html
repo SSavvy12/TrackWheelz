@@ -4,7 +4,66 @@
   <meta charset="utf-8"/>
   <title>Login - Track Wheelz</title>
   <link rel="stylesheet" href="style.css"/>
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+    // 🔥 Your Firebase Config
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
+      authDomain: "trackwheelz.firebaseapp.com",
+      projectId: "trackwheelz",
+      storageBucket: "trackwheelz.firebasestorage.app",
+      messagingSenderId: "902612651501",
+      appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
+      measurementId: "G-QSCJ3V0KJL"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const loginForm = document.getElementById("loginForm");
+      const status = document.getElementById("status");
+      const loginLink = document.getElementById("loginLink");
+      const logoutLink = document.getElementById("logoutLink");
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          loginLink.style.display = "none";
+          logoutLink.style.display = "inline";
+        } else {
+          loginLink.style.display = "inline";
+          logoutLink.style.display = "none";
+        }
+      });
+
+      logoutLink.addEventListener("click", async () => {
+        await signOut(auth);
+        window.location.href = "index.html";
+      });
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          status.style.color = "green";
+          status.textContent = "Login successful! Redirecting...";
+          setTimeout(() => (window.location.href = "map.html"), 1000);
+        } catch (error) {
+          status.style.color = "red";
+          status.textContent = error.message;
+        }
+      });
+    });
+  </script>
 </head>
+
 <body>
   <header>
     <h1>Track Wheelz</h1>
@@ -16,83 +75,20 @@
       <a href="#" id="logoutLink" style="display:none;">Logout</a>
     </nav>
   </header>
+
   <div class="container">
     <h2>Login</h2>
     <form id="loginForm">
-      <label for="username">Username</label>
-      <input type="text" id="username" name="username" required/>
+      <label for="username">Email</label>
+      <input type="email" id="username" name="username" required/>
 
       <label for="password">Password</label>
       <input type="password" id="password" name="password" required/>
 
       <button type="submit">Login</button>
     </form>
-    <p id="status" style="color: green; margin-top: 10px;"></p>
+    <p id="status" style="margin-top: 10px;"></p>
   </div>
-
-  <script>
-    const loginLink = document.getElementById("loginLink");
-    const logoutLink = document.getElementById("logoutLink");
-    const user = localStorage.getItem("hotwheelsUser");
-
-    // 🚨 Redirect guard: already logged in
-    if (user) {
-      window.location.href = "map.html";
-    }
-
-    // Navbar state
-    if (user) {
-      loginLink.style.display = "none";
-      logoutLink.style.display = "inline";
-    }
-
-    logoutLink.addEventListener("click", () => {
-      localStorage.removeItem("hotwheelsUser");
-      window.location.href = "index.html";
-    });
-
-    // Handle login form
-    const form = document.getElementById("loginForm");
-    const status = document.getElementById("status");
-
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();
-
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
-
-      if (!username || !password) {
-        status.style.color = "red";
-        status.textContent = "Please enter both username and password.";
-        return;
-      }
-
-      // Load user account from localStorage
-      const storedUser = localStorage.getItem("user_" + username);
-
-      if (!storedUser) {
-        status.style.color = "red";
-        status.textContent = "Account not found. Please sign up first.";
-        return;
-      }
-
-      const userData = JSON.parse(storedUser);
-
-      if (userData.password === password) {
-        status.style.color = "green";
-        status.textContent = "Login successful! Redirecting...";
-
-        // Save active session
-        localStorage.setItem("hotwheelsUser", username);
-
-        setTimeout(() => {
-          window.location.href = "map.html";
-        }, 1000);
-      } else {
-        status.style.color = "red";
-        status.textContent = "Incorrect password. Try again.";
-      }
-    });
-  </script>
 </body>
 </html>
+
