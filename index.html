@@ -18,6 +18,24 @@ button { background: #007bff; border: none; padding: 10px 20px; border-radius: 1
 button:hover { background: #0056b3; }
 #bonusBox { background: #c8f7c5; border: 3px solid #28a745; border-radius: 15px; padding: 20px; width: 250px; margin: 20px auto; }
 #bonusMsg { color: #006400; margin-top: 10px; font-weight: bold; }
+
+/* Display Name Modal */
+#nameModal {
+  display: none;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 1000;
+  justify-content: center; align-items: center;
+}
+#nameModalContent {
+  background: white; padding: 30px; border-radius: 15px; text-align: center;
+  max-width: 350px; width: 90%;
+}
+#nameModalContent input {
+  padding: 10px; width: 80%; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc;
+}
+#nameModalContent button {
+  margin-top: 15px; padding: 10px 20px; font-size: 16px; border-radius: 10px; cursor: pointer;
+}
 </style>
 </head>
 
@@ -55,6 +73,16 @@ button:hover { background: #0056b3; }
   </div>
 </div>
 
+<!-- Display Name Modal -->
+<div id="nameModal">
+  <div id="nameModalContent">
+    <h3>Enter Your Display Name</h3>
+    <input type="text" id="displayNameInput" placeholder="Your name...">
+    <br>
+    <button id="saveNameBtn">Save</button>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
@@ -83,6 +111,10 @@ const loginStatus = document.getElementById("loginStatus");
 const bonusBtn = document.getElementById("dailyBonusBtn");
 const bonusMsg = document.getElementById("bonusMsg");
 
+const nameModal = document.getElementById("nameModal");
+const displayNameInput = document.getElementById("displayNameInput");
+const saveNameBtn = document.getElementById("saveNameBtn");
+
 // --- Auth State ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -97,35 +129,26 @@ onAuthStateChanged(auth, async (user) => {
 
     if (snap.exists()) {
       data = snap.data();
-      // If player doesn't have a name yet, ask for one
-      if (!data.name) {
-        const name = prompt("Enter your display name:");
-        if (name) {
-          await updateDoc(ref, { name });
-          data.name = name;
-        }
-      }
+      if (!data.name) showNameModal(ref, data);
     } else {
-      // New user: ask for name and create record
-      const name = prompt("Enter your display name:");
-      data = { points: 0, level: 1, lastBonus: null, name: name || "Player" };
-      await setDoc(ref, data);
+      data = { points: 0, level: 1, lastBonus: null };
+      showNameModal(ref, data);
     }
 
-    welcomeMsg.textContent = `Welcome, ${data.name}!`;
-    updateStatsUI(data.points || 0, data.level || 1);
-    checkDailyBonus(data.lastBonus);
+    if (data.name) {
+      welcomeMsg.textContent = `Welcome, ${data.name}!`;
+      updateStatsUI(data.points || 0, data.level || 1);
+      checkDailyBonus(data.lastBonus);
+    }
 
-    // Enable button click
     bonusBtn.onclick = async () => {
       const now = new Date();
       if (canClaimBonus(data.lastBonus)) {
         const newPoints = (data.points || 0) + 50;
-        const newData = {
-          points: newPoints,
-          lastBonus: now.toISOString()
-        };
+        const newData = { points: newPoints, lastBonus: now.toISOString() };
         await updateDoc(ref, newData);
+        data.points = newPoints;
+        data.lastBonus = now.toISOString();
         bonusMsg.textContent = "✅ You received 50 points!";
         updateStatsUI(newPoints, data.level || 1);
         bonusBtn.disabled = true;
@@ -135,7 +158,6 @@ onAuthStateChanged(auth, async (user) => {
     };
 
   } else {
-    // Not logged in
     loginLink.style.display = "inline";
     logoutLink.style.display = "none";
     statsDiv.style.display = "none";
@@ -150,7 +172,7 @@ logoutLink.addEventListener("click", async () => {
   window.location.href = "index.html";
 });
 
-// --- Update Stats UI ---
+// --- Stats UI ---
 function updateStatsUI(points, level) {
   document.getElementById("points").textContent = points;
   document.getElementById("level").textContent = level;
@@ -160,13 +182,12 @@ function updateStatsUI(points, level) {
   document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
 }
 
-// --- Daily Bonus Check ---
+// --- Daily Bonus ---
 function canClaimBonus(lastBonus) {
   if (!lastBonus) return true;
   const last = new Date(lastBonus);
   const now = new Date();
-  const diff = now - last;
-  return diff > 24 * 60 * 60 * 1000; // 24 hours
+  return (now - last) > 24*60*60*1000;
 }
 
 function checkDailyBonus(lastBonus) {
@@ -178,7 +199,25 @@ function checkDailyBonus(lastBonus) {
     bonusMsg.textContent = "⏳ You've already claimed your bonus today.";
   }
 }
+
+// --- Display Name Modal ---
+function showNameModal(ref, data) {
+  nameModal.style.display = "flex";
+  saveNameBtn.onclick = async () => {
+    const name = displayNameInput.value.trim();
+    if (name) {
+      data.name = name;
+      await setDoc(ref, { ...data, name }, { merge: true });
+      welcomeMsg.textContent = `Welcome, ${data.name}!`;
+      nameModal.style.display = "none";
+      updateStatsUI(data.points || 0, data.level || 1);
+      checkDailyBonus(data.lastBonus);
+    }
+  };
+}
 </script>
 </body>
 </html>
+
+
 
