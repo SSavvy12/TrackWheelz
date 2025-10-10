@@ -29,6 +29,7 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 #popupMessage { margin-top: 10px; font-weight: bold; color: #d35400; }
 #codePopup button { margin-top: 10px; padding: 5px 15px; border: none; background: #ff66cc; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
 #codePopup button:hover { background: #406be4; }
+.treasureInRange { filter: drop-shadow(0 0 8px lime); } /* green glow when in range */
 </style>
 </head>
 
@@ -200,7 +201,32 @@ async function setupMap(uid) {
       if (!userMarker) userMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map).bindPopup("📍 You are here");
       else userMarker.setLatLng([lat, lng]);
       map.setView([lat, lng]);
+
+      // Update lockbox glow if in range
+      locations.forEach(loc => {
+        loc.boxes.forEach((box, i) => {
+          const boxCoords = box.exactCoords || [
+            loc.coords[0] + 0.0003 * Math.cos(i * 2 * Math.PI / loc.boxes.length),
+            loc.coords[1] + 0.0003 * Math.sin(i * 2 * Math.PI / loc.boxes.length)
+          ];
+          const distance = getDistanceFeet(lat, lng, boxCoords[0], boxCoords[1]);
+          if (distance <= 50 && box.marker) box.marker.getElement()?.classList.add("treasureInRange");
+          else if (box.marker) box.marker.getElement()?.classList.remove("treasureInRange");
+        });
+      });
+
     });
+  }
+
+  function getDistanceFeet(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; 
+    const toRad = x => x * Math.PI / 180;
+    const φ1 = toRad(lat1), φ2 = toRad(lat2);
+    const Δφ = toRad(lat2 - lat1), Δλ = toRad(lon2 - lon1);
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const meters = R * c;
+    return meters * 3.28084; 
   }
 
   // Lockboxes
@@ -211,14 +237,36 @@ async function setupMap(uid) {
         loc.coords[1] + 0.0003 * Math.sin(i * 2 * Math.PI / loc.boxes.length)
       ];
       const marker = L.marker(boxCoords, { icon: treasureIcon }).addTo(map);
+      box.marker = marker;
       marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
+
       marker.on("dblclick", async () => {
         if (!stats.claimedTiers[box.id]) stats.claimedTiers[box.id] = [];
+
+        if (!userMarker) {
+          document.getElementById("popupBoxName").textContent = "Too far!";
+          document.getElementById("popupUserCode").textContent = "";
+          document.getElementById("popupOtherCodes").innerHTML = "";
+          document.getElementById("popupMessage").textContent = "⚠️ Unable to determine your location. Enable GPS!";
+          document.getElementById("codePopup").style.display = "block";
+          return;
+        }
+
+        const userLatLng = userMarker.getLatLng();
+        const distance = getDistanceFeet(userLatLng.lat, userLatLng.lng, boxCoords[0], boxCoords[1]);
+
+        if (distance > 50) {
+          document.getElementById("popupBoxName").textContent = `${box.name} @ ${loc.name}`;
+          document.getElementById("popupUserCode").textContent = "";
+          document.getElementById("popupOtherCodes").innerHTML = "";
+          document.getElementById("popupMessage").textContent = `⚠️ You are too far from the lock box! (${Math.round(distance)} ft away)`;
+          document.getElementById("codePopup").style.display = "block";
+          return;
+        }
 
         const tierIndex = Math.floor((stats.level - 1) / 8);
         const ul = document.getElementById("popupOtherCodes");
         ul.innerHTML = "";
-
         box.codes.forEach((code, t) => {
           if (t <= tierIndex) ul.innerHTML += `<li>Tier ${t + 1} Code: ${code}</li>`;
         });
@@ -247,7 +295,3 @@ async function setupMap(uid) {
 </script>
 </body>
 </html>
-
-
-
-
