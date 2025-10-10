@@ -219,7 +219,7 @@ async function setupMap(uid) {
 
         const userLatLng=userMarker.getLatLng();
         const distance=getDistanceFeet(userLatLng.lat,userLatLng.lng,boxCoords[0],boxCoords[1]);
-        if(distance>50){ showPopup(`${box.name} @ ${loc.name}`,"","",`⚠️ You are too far! (${Math.round(distance)} ft away)`); return; }
+        if(distance>200){ showPopup(`${box.name} @ ${loc.name}`,"","",`⚠️ You are too far! (${Math.round(distance)} ft away)`); return; }
 
         const tierIndex=Math.floor((stats.level-1)/8);
         const ul=document.getElementById("popupOtherCodes"); ul.innerHTML="";
@@ -252,6 +252,7 @@ async function setupMap(uid) {
 </script>
 </body>
 </html>
+
 
 
 
