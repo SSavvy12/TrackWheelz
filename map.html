@@ -6,77 +6,138 @@
 <link rel="stylesheet" href="style.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f9f9f9; }
-header { background: #0066cc; color: white; padding: 10px; text-align: center; }
-nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; }
-.container { padding: 20px; max-width: 900px; margin: auto; }
-#map { width: 100%; height: 400px; border: 3px solid #0066cc; border-radius: 12px; margin-top: 15px; }
-#stats { background: #ffeb99; border: 4px solid #ff6600; padding: 15px; border-radius: 15px; margin-bottom: 20px; text-align: center; }
-#progressBar { background: #ddd; border-radius: 12px; overflow: hidden; margin: 10px auto; height: 25px; width: 90%; }
-#progressFill { background: #00cc66; height: 100%; width: 0%; transition: width 0.5s; }
-#tiersPanel { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
-.tierBox { width: 120px; padding: 10px; border-radius: 12px; text-align: center; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; background: #ccc; color: #666; }
+/* Additional styling for map page elements */
+#stats {
+  background: #ffeb99;
+  border: 4px solid #ff6600;
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #333;
+}
+
+#progressBar {
+  background: #ddd;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 10px auto;
+  height: 25px;
+  width: 90%;
+}
+
+#progressFill {
+  background: #00cc66;
+  height: 100%;
+  width: 0%;
+  transition: width 0.5s;
+}
+
+#tiersPanel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tierBox {
+  width: 120px;
+  padding: 10px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  position: relative;
+  background: #ccc;
+  color: #666;
+}
+
 .tierCompleted { background: #66cc66; color: white; }
 .tierCurrent { background: #ffcc33; color: #222; }
 .tierLocked { background: #ccc; color: #666; }
+
 .carIcon { font-size: 24px; line-height: 24px; text-align: center; }
 .treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; }
-#codePopup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #cce6ff; border: 3px solid #3399ff; border-radius: 20px; padding: 20px 30px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 9999; color: #333; font-weight: bold; max-width: 90%; }
+
+#codePopup {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #cce6ff;
+  border: 3px solid #3399ff;
+  border-radius: 20px;
+  padding: 20px 30px;
+  text-align: center;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+  z-index: 9999;
+  color: #333;
+  font-weight: bold;
+  max-width: 90%;
+}
+
 #codePopup h2 { margin: 0 0 10px 0; color: #1582ee; }
 #codePopup p { margin: 5px 0; font-size: 16px; }
 #codePopup ul { list-style: none; padding: 0; margin: 10px 0 0 0; }
 #codePopup ul li { background: #fff0ff; margin: 3px 0; padding: 5px 10px; border-radius: 10px; }
 #popupMessage { margin-top: 10px; font-weight: bold; color: #d35400; }
-#codePopup button { margin-top: 10px; padding: 5px 15px; border: none; background: #ff66cc; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
+#codePopup button {
+  margin-top: 10px;
+  padding: 5px 15px;
+  border: none;
+  background: #ff66cc;
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
 #codePopup button:hover { background: #406be4; }
 </style>
 </head>
 
 <body>
 <header>
-<h1>Track Wheelz</h1>
-<nav>
-<a href="index.html">Home</a>
-<a href="login.html" id="loginLink">Login</a>
-<a href="map.html">Map</a>
-<a href="#" id="logoutLink" style="display:none;">Logout</a>
-</nav>
+  <h1>Track Wheelz</h1>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="login.html" id="loginLink">Login</a>
+    <a href="map.html">Map</a>
+    <a href="#" id="logoutLink" style="display:none;">Logout</a>
+  </nav>
 </header>
 
 <div class="container">
-<h2 id="welcomeMsg">Welcome!</h2>
+  <h2 id="welcomeMsg">Welcome!</h2>
 
-<div id="stats">
-<p style="font-size: 20px;">⭐ Points: <span id="points">0</span></p>
-<p style="font-size: 20px;">🏁 Level: <span id="level">1</span></p>
-<div id="progressBar"><div id="progressFill"></div></div>
-<p id="nextLevelText"></p>
-</div>
+  <div id="stats">
+    <p style="font-size: 20px;">⭐ Points: <span id="points">0</span></p>
+    <p style="font-size: 20px;">🏁 Level: <span id="level">1</span></p>
+    <div id="progressBar"><div id="progressFill"></div></div>
+    <p id="nextLevelText"></p>
+  </div>
 
-<div id="tiersPanel"></div>
+  <div id="tiersPanel"></div>
 
-<div id="map"></div>
-<p style="text-align:center;">Double-click a treasure chest 🗝️ to reveal your codes!</p>
+  <div id="map"></div>
+  <p style="text-align:center;">Double-click a treasure chest 🗝️ to reveal your codes!</p>
 </div>
 
 <div id="codePopup">
-<h2 id="popupBoxName"></h2>
-<p id="popupUserCode"></p>
-<ul id="popupOtherCodes"></ul>
-<p id="popupMessage"></p>
-<button onclick="document.getElementById('codePopup').style.display='none'">Close</button>
+  <h2 id="popupBoxName"></h2>
+  <p id="popupUserCode"></p>
+  <ul id="popupOtherCodes"></ul>
+  <p id="popupMessage"></p>
+  <button onclick="document.getElementById('codePopup').style.display='none'">Close</button>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { 
-  getAuth, onAuthStateChanged, signOut 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-import { 
-  getFirestore, doc, getDoc, setDoc, updateDoc 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 // --- Firebase Config ---
 const firebaseConfig = {
@@ -106,7 +167,6 @@ onAuthStateChanged(auth, async (user) => {
     logoutLink.style.display = "inline";
     welcomeMsg.textContent = `Welcome, ${user.email}!`;
 
-    // Load or create user progress
     stats = await loadUserData(user.uid);
     updateStatsUI();
     setupMap(user.uid);
@@ -138,6 +198,7 @@ async function saveUserData(uid, data) {
 
 // --- Gameplay Logic ---
 let stats = { points: 0, level: 1, claimedTiers: {} };
+let userLocation = null;
 
 function updateStatsUI() {
   document.getElementById("points").textContent = stats.points;
@@ -153,20 +214,20 @@ function checkLevelUp() {
   const needed = stats.level * 200;
   if (stats.points >= needed) {
     stats.level++;
-    alert(`🎉 Level Up! You’re now Level ${stats.level}!`);
+    document.getElementById("popupMessage").textContent = `🎉 Level Up! You’re now Level ${stats.level}!`;
   }
 }
 
 const tiers = [];
 for (let i = 0; i < 8; i++) {
-  const start = i*8 + 1, end = start+7;
-  tiers.push({ tier: i+1, start, end });
+  const start = i * 8 + 1, end = start + 7;
+  tiers.push({ tier: i + 1, start, end });
 }
 
 function updateTiersPanel() {
   const panel = document.getElementById("tiersPanel");
   panel.innerHTML = "";
-  tiers.forEach(t=>{
+  tiers.forEach(t => {
     const box = document.createElement("div");
     if (stats.level > t.end) box.className = "tierBox tierCompleted";
     else if (stats.level >= t.start && stats.level <= t.end) box.className = "tierBox tierCurrent";
@@ -174,6 +235,19 @@ function updateTiersPanel() {
     box.innerHTML = `Tier ${t.tier}<br>(Lv ${t.start}-${t.end})`;
     panel.appendChild(box);
   });
+}
+
+// --- Distance Helper ---
+function getDistanceInFeet(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // meters
+  const toRad = x => x * Math.PI / 180;
+  const φ1 = toRad(lat1), φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distanceMeters = R * c;
+  return distanceMeters * 3.28084; // convert to feet
 }
 
 // --- Map Setup ---
@@ -184,12 +258,12 @@ async function setupMap(uid) {
     attribution: '&copy; OpenStreetMap'
   }).addTo(map);
 
-  const carIcon = L.divIcon({ className: "carIcon", html: "🚙", iconSize: [24, 24], iconAnchor: [12, 12] });
-  const treasureIcon = L.divIcon({ className: "treasureIcon", html: "💰", iconSize: [22, 22], iconAnchor: [11, 11] });
+  const carIcon = L.divIcon({ className: "carIcon", html: "🚙", iconSize: [24,24], iconAnchor:[12,12] });
+  const treasureIcon = L.divIcon({ className: "treasureIcon", html: "💰", iconSize: [22,22], iconAnchor:[11,11] });
 
   const locations = [
-    { name: "Park Entrance", coords: [34.0007, -81.0348], boxes: [{ id: "box1", name: "Lock Box", codes: ["1111","2222","3333","4444","5555","6666","7777","8888"] }] },
-    { name: "Home Base", coords: [34.24388, -80.8128805], boxes: [{ id: "box2", name: "Lock Box", codes: ["7777","8888","9999","0000","1111","2222","3333","4444"] }] }
+    { name: "Park Entrance", coords:[34.0007, -81.0348], boxes:[{id:"box1", name:"Lock Box", codes:["1111","2222","3333","4444","5555","6666","7777","8888"]}]},
+    { name: "Home Base", coords:[34.24388, -80.8128805], boxes:[{id:"box2", name:"Lock Box", codes:["7777","8888","9999","0000","1111","2222","3333","4444"]}]}
   ];
 
   // Track user position
@@ -197,48 +271,60 @@ async function setupMap(uid) {
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(pos => {
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      if (!userMarker) userMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map).bindPopup("📍 You are here");
-      else userMarker.setLatLng([lat, lng]);
-      map.setView([lat, lng]);
+      userLocation = [lat, lng];
+      if (!userMarker) userMarker = L.marker(userLocation, {icon:carIcon}).addTo(map).bindPopup("📍 You are here");
+      else userMarker.setLatLng(userLocation);
     });
   }
 
   // Lockboxes
-  locations.forEach(loc => {
-    loc.boxes.forEach((box, i) => {
-      const boxCoords = box.exactCoords || [
-        loc.coords[0] + 0.0003 * Math.cos(i * 2 * Math.PI / loc.boxes.length),
-        loc.coords[1] + 0.0003 * Math.sin(i * 2 * Math.PI / loc.boxes.length)
+  locations.forEach(loc=>{
+    loc.boxes.forEach((box,i)=>{
+      const boxCoords = [
+        loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),
+        loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
       ];
-      const marker = L.marker(boxCoords, { icon: treasureIcon }).addTo(map);
+      const marker = L.marker(boxCoords,{icon:treasureIcon}).addTo(map);
       marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
-      marker.on("dblclick", async () => {
-        if (!stats.claimedTiers[box.id]) stats.claimedTiers[box.id] = [];
+      
+      marker.on("dblclick", async ()=>{
+        if(!userLocation){
+          document.getElementById("popupBoxName").textContent="Location Error";
+          document.getElementById("popupMessage").textContent="📍 Location not detected! Allow location access.";
+          document.getElementById("codePopup").style.display="block";
+          return;
+        }
+        const distance = getDistanceInFeet(userLocation[0], userLocation[1], boxCoords[0], boxCoords[1]);
+        if(distance>50){
+          document.getElementById("popupBoxName").textContent = box.name + " @ " + loc.name;
+          document.getElementById("popupMessage").textContent = `🚫 Too far! Move closer to within 50 ft. (Current: ${distance.toFixed(1)} ft)`;
+          document.getElementById("popupUserCode").textContent="";
+          document.getElementById("popupOtherCodes").innerHTML="";
+          document.getElementById("codePopup").style.display="block";
+          return;
+        }
 
-        const tierIndex = Math.floor((stats.level - 1) / 8);
-        const ul = document.getElementById("popupOtherCodes");
-        ul.innerHTML = "";
-
-        box.codes.forEach((code, t) => {
-          if (t <= tierIndex) ul.innerHTML += `<li>Tier ${t + 1} Code: ${code}</li>`;
+        if(!stats.claimedTiers[box.id]) stats.claimedTiers[box.id]=[];
+        const tierIndex = Math.floor((stats.level-1)/8);
+        const ul=document.getElementById("popupOtherCodes");
+        ul.innerHTML="";
+        box.codes.forEach((code,t)=>{
+          if(t<=tierIndex) ul.innerHTML+=`<li>Tier ${t+1} Code: ${code}</li>`;
         });
 
-        let message = "";
-        if (!stats.claimedTiers[box.id].includes(tierIndex)) {
+        let message="";
+        if(!stats.claimedTiers[box.id].includes(tierIndex)){
           stats.claimedTiers[box.id].push(tierIndex);
-          stats.points += 50;
+          stats.points+=50;
           checkLevelUp();
-          message = `🎉 You earned 50 points for Tier ${tierIndex + 1}!`;
-          await saveUserData(uid, stats);
-        } else {
-          message = "⚠️ Already opened for this tier. Reach a higher tier to unlock more!";
-        }
+          message=`🎉 You earned 50 points for Tier ${tierIndex+1}!`;
+          await saveUserData(uid,stats);
+        } else message="⚠️ Already opened for this tier. Reach higher tier to unlock more!";
 
         document.getElementById("popupBoxName").textContent = `${box.name} @ ${loc.name}`;
         document.getElementById("popupUserCode").textContent = `🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
         document.getElementById("popupMessage").textContent = message;
-        document.getElementById("codePopup").style.display = "block";
-
+        document.getElementById("codePopup").style.display="block";
         updateStatsUI();
       });
     });
@@ -247,5 +333,3 @@ async function setupMap(uid) {
 </script>
 </body>
 </html>
-
-
