@@ -1,106 +1,120 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <title>Login - Track Wheelz</title>
-  <link rel="stylesheet" href="style.css"/>
-
-  <style>
-    /* ✅ Make email and password boxes the same size */
-    input[type="email"], input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-  </style>
-
-  <script type="module">
-    // Import Firebase
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
-      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-
-    // 🔥 Your Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
-      authDomain: "trackwheelz.firebaseapp.com",
-      projectId: "trackwheelz",
-      storageBucket: "trackwheelz.firebasestorage.app",
-      messagingSenderId: "902612651501",
-      appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
-      measurementId: "G-QSCJ3V0KJL"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const loginForm = document.getElementById("loginForm");
-      const status = document.getElementById("status");
-      const loginLink = document.getElementById("loginLink");
-      const logoutLink = document.getElementById("logoutLink");
-
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          loginLink.style.display = "none";
-          logoutLink.style.display = "inline";
-        } else {
-          loginLink.style.display = "inline";
-          logoutLink.style.display = "none";
-        }
-      });
-
-      logoutLink.addEventListener("click", async () => {
-        await signOut(auth);
-        window.location.href = "index.html";
-      });
-
-      loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("username").value.trim();
-        const password = document.getElementById("password").value.trim();
-
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-          status.style.color = "green";
-          status.textContent = "Login successful! Redirecting...";
-          setTimeout(() => (window.location.href = "map.html"), 1000);
-        } catch (error) {
-          status.style.color = "red";
-          status.textContent = error.message;
-        }
-      });
-    });
-  </script>
+<meta charset="utf-8"/>
+<title>Login - Track Wheelz</title>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body { font-family: Arial, sans-serif; background: #e6f0ff; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+h1 { color: #0066cc; margin-bottom: 20px; }
+form { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 320px; text-align: center; }
+input[type="email"], input[type="password"] { width: 90%; padding: 10px; margin: 8px 0; border: 2px solid #ccc; border-radius: 10px; font-size: 16px; }
+button { background: #007bff; border: none; color: white; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; }
+button:hover { background: #0056b3; }
+#message { margin-top: 10px; font-weight: bold; }
+a { color: #007bff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
 </head>
 
 <body>
-  <header>
-    <h1>Track Wheelz</h1>
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="login.html" id="loginLink">Login</a>
-      <a href="signup.html">Sign Up</a>
-      <a href="map.html">Map</a>
-      <a href="#" id="logoutLink" style="display:none;">Logout</a>
-    </nav>
-  </header>
+<h1>Track Wheelz Login</h1>
 
-  <div class="container">
-    <h2>Login</h2>
-    <form id="loginForm">
-      <label for="username">Email</label>
-      <input type="email" id="username" name="username" required/>
+<form id="authForm">
+  <input type="email" id="email" placeholder="Email" required><br>
+  <input type="password" id="password" placeholder="Password" required><br>
+  <button type="submit" id="loginBtn">Login</button>
+  <p style="margin-top:10px;">or <a href="#" id="toggleMode">Create an Account</a></p>
+  <p id="message"></p>
+</form>
 
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required/>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { 
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { 
+  getFirestore, doc, setDoc, getDoc 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-      <button type="submit">Login</button>
-    </form>
-    <p id="status" style="margin-top: 10px;"></p>
-  </div>
+// --- Firebase Config ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
+  authDomain: "trackwheelz.firebaseapp.com",
+  projectId: "trackwheelz",
+  storageBucket: "trackwheelz.firebasestorage.app",
+  messagingSenderId: "902612651501",
+  appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
+  measurementId: "G-QSCJ3V0KJL"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- Elements ---
+const form = document.getElementById("authForm");
+const email = document.getElementById("email");
+const password = document.getElementById("password");
+const message = document.getElementById("message");
+const toggleMode = document.getElementById("toggleMode");
+const loginBtn = document.getElementById("loginBtn");
+
+let isSignUp = false;
+
+// Toggle between Login / Sign Up
+toggleMode.addEventListener("click", (e) => {
+  e.preventDefault();
+  isSignUp = !isSignUp;
+  loginBtn.textContent = isSignUp ? "Sign Up" : "Login";
+  toggleMode.textContent = isSignUp ? "Already have an account? Log In" : "Create an Account";
+  message.textContent = "";
+});
+
+// Handle Login / Sign Up
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  message.textContent = "";
+
+  try {
+    if (isSignUp) {
+      // --- Sign Up Flow ---
+      const userCred = await createUserWithEmailAndPassword(auth, email.value, password.value);
+      const user = userCred.user;
+
+      // Create Firestore record
+      await setDoc(doc(db, "players", user.uid), {
+        points: 0,
+        level: 1,
+        claimedTiers: {}
+      });
+
+      message.style.color = "green";
+      message.textContent = "✅ Account created! Redirecting...";
+      setTimeout(() => window.location.href = "map.html", 1200);
+
+    } else {
+      // --- Login Flow ---
+      await signInWithEmailAndPassword(auth, email.value, password.value);
+      message.style.color = "green";
+      message.textContent = "✅ Login successful! Redirecting...";
+      setTimeout(() => window.location.href = "map.html", 1200);
+    }
+  } catch (err) {
+    message.style.color = "red";
+    message.textContent = "⚠️ " + err.message;
+  }
+});
+
+// Auto-redirect if already logged in
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    window.location.href = "map.html";
+  }
+});
+</script>
 </body>
 </html>
+
 
 
 
