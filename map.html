@@ -57,7 +57,7 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 <div id="tiersPanel"></div>
 
 <div id="map"></div>
-<p style="text-align:center;">Double-click a treasure chest 🗝️ to reveal your codes!</p>
+<p style="text-align:center;">Double-click a treasure chest 🗝️ (desktop) / tap (mobile) to reveal your codes!</p>
 </div>
 
 <div id="codePopup">
@@ -72,12 +72,8 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { 
-  getAuth, onAuthStateChanged, signOut 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-import { 
-  getFirestore, doc, getDoc, setDoc, updateDoc 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 // --- Firebase Config ---
 const firebaseConfig = {
@@ -98,6 +94,31 @@ const loginLink = document.getElementById("loginLink");
 const logoutLink = document.getElementById("logoutLink");
 const welcomeMsg = document.getElementById("welcomeMsg");
 
+// --- Prompt for user name ---
+let playerName = localStorage.getItem("playerName");
+if(!playerName) {
+  const nameInput = document.createElement("div");
+  nameInput.style.position = "fixed";
+  nameInput.style.top = "0"; nameInput.style.left = "0"; nameInput.style.width = "100%";
+  nameInput.style.height = "100%"; nameInput.style.background = "rgba(0,0,0,0.6)";
+  nameInput.style.display = "flex"; nameInput.style.alignItems = "center"; nameInput.style.justifyContent = "center";
+  nameInput.style.zIndex = "10000";
+  nameInput.innerHTML = `<div style="background:white;padding:20px;border-radius:15px;text-align:center;">
+    <h2>Enter your name:</h2>
+    <input id="playerNameInput" style="padding:5px;font-size:16px;border-radius:10px;" />
+    <button id="playerNameBtn" style="margin-left:10px;padding:5px 10px;border-radius:10px;background:#3399ff;color:white;border:none;">OK</button>
+  </div>`;
+  document.body.appendChild(nameInput);
+  document.getElementById("playerNameBtn").addEventListener("click",()=>{
+    playerName = document.getElementById("playerNameInput").value || "Player";
+    localStorage.setItem("playerName", playerName);
+    welcomeMsg.textContent = `Welcome, ${playerName}!`;
+    document.body.removeChild(nameInput);
+  });
+} else {
+  welcomeMsg.textContent = `Welcome, ${playerName}!`;
+}
+
 // --- Auth State ---
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -105,9 +126,9 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     loginLink.style.display = "none";
     logoutLink.style.display = "inline";
-    welcomeMsg.textContent = `Welcome, ${user.email}!`;
+    // Only update welcome if userName not yet stored
+    if(!playerName) welcomeMsg.textContent = `Welcome, ${user.email}!`;
 
-    // Load or create user progress
     stats = await loadUserData(user.uid);
     updateStatsUI();
     setupMap(user.uid);
@@ -123,13 +144,10 @@ logoutLink.addEventListener("click", async () => {
 async function loadUserData(uid) {
   const ref = doc(db, "players", uid);
   const snap = await getDoc(ref);
-  if (snap.exists()) {
-    return snap.data();
-  } else {
-    const fresh = { points: 0, level: 1, claimedTiers: {} };
-    await setDoc(ref, fresh);
-    return fresh;
-  }
+  if (snap.exists()) return snap.data();
+  const fresh = { points: 0, level: 1, claimedTiers: {} };
+  await setDoc(ref, fresh);
+  return fresh;
 }
 
 async function saveUserData(uid, data) {
@@ -181,8 +199,7 @@ function updateTiersPanel() {
 async function setupMap(uid) {
   const map = L.map('map').setView([34.0007, -81.0348], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
   }).addTo(map);
 
   const carIcon = L.divIcon({ className: "carIcon", html: "🚙", iconSize: [24, 24], iconAnchor: [12, 12] });
@@ -193,7 +210,6 @@ async function setupMap(uid) {
     { name: "Home Base", coords: [34.24388, -80.8128805], boxes: [{ id: "box2", name: "Lock Box", codes: ["7777","8888","9999","0000","1111","2222","3333","4444"] }] }
   ];
 
-  // Track user position
   let userMarker = null;
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(pos => {
@@ -202,7 +218,6 @@ async function setupMap(uid) {
       else userMarker.setLatLng([lat, lng]);
       map.setView([lat, lng]);
 
-      // Update lockbox glow if in range
       locations.forEach(loc => {
         loc.boxes.forEach((box, i) => {
           const boxCoords = box.exactCoords || [
@@ -214,7 +229,6 @@ async function setupMap(uid) {
           else if (box.marker) box.marker.getElement()?.classList.remove("treasureInRange");
         });
       });
-
     });
   }
 
@@ -223,76 +237,83 @@ async function setupMap(uid) {
     const toRad = x => x * Math.PI / 180;
     const φ1 = toRad(lat1), φ2 = toRad(lat2);
     const Δφ = toRad(lat2 - lat1), Δλ = toRad(lon2 - lon1);
-    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const meters = R * c;
-    return meters * 3.28084; 
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+    const c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R*c*3.28084;
   }
 
-  // Lockboxes
+  // Add lockboxes
   locations.forEach(loc => {
     loc.boxes.forEach((box, i) => {
       const boxCoords = box.exactCoords || [
-        loc.coords[0] + 0.0003 * Math.cos(i * 2 * Math.PI / loc.boxes.length),
-        loc.coords[1] + 0.0003 * Math.sin(i * 2 * Math.PI / loc.boxes.length)
+        loc.coords[0] + 0.0003 * Math.cos(i*2*Math.PI/loc.boxes.length),
+        loc.coords[1] + 0.0003 * Math.sin(i*2*Math.PI/loc.boxes.length)
       ];
       const marker = L.marker(boxCoords, { icon: treasureIcon }).addTo(map);
       box.marker = marker;
-      marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
+      marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click/tap to see codes`);
 
-      marker.on("dblclick", async () => {
-        if (!stats.claimedTiers[box.id]) stats.claimedTiers[box.id] = [];
-
-        if (!userMarker) {
-          document.getElementById("popupBoxName").textContent = "Too far!";
-          document.getElementById("popupUserCode").textContent = "";
-          document.getElementById("popupOtherCodes").innerHTML = "";
-          document.getElementById("popupMessage").textContent = "⚠️ Unable to determine your location. Enable GPS!";
-          document.getElementById("codePopup").style.display = "block";
-          return;
+      const handleClick = () => handleBoxClick(box, loc, uid, userMarker);
+      // Desktop double-click
+      marker.on("dblclick", handleClick);
+      // Mobile tap
+      marker.on("click", e=>{
+        if(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)){
+          handleClick();
         }
-
-        const userLatLng = userMarker.getLatLng();
-        const distance = getDistanceFeet(userLatLng.lat, userLatLng.lng, boxCoords[0], boxCoords[1]);
-
-        if (distance > 50) {
-          document.getElementById("popupBoxName").textContent = `${box.name} @ ${loc.name}`;
-          document.getElementById("popupUserCode").textContent = "";
-          document.getElementById("popupOtherCodes").innerHTML = "";
-          document.getElementById("popupMessage").textContent = `⚠️ You are too far from the lock box! (${Math.round(distance)} ft away)`;
-          document.getElementById("codePopup").style.display = "block";
-          return;
-        }
-
-        const tierIndex = Math.floor((stats.level - 1) / 8);
-        const ul = document.getElementById("popupOtherCodes");
-        ul.innerHTML = "";
-        box.codes.forEach((code, t) => {
-          if (t <= tierIndex) ul.innerHTML += `<li>Tier ${t + 1} Code: ${code}</li>`;
-        });
-
-        let message = "";
-        if (!stats.claimedTiers[box.id].includes(tierIndex)) {
-          stats.claimedTiers[box.id].push(tierIndex);
-          stats.points += 50;
-          checkLevelUp();
-          message = `🎉 You earned 50 points for Tier ${tierIndex + 1}!`;
-          await saveUserData(uid, stats);
-        } else {
-          message = "⚠️ Already opened for this tier. Reach a higher tier to unlock more!";
-        }
-
-        document.getElementById("popupBoxName").textContent = `${box.name} @ ${loc.name}`;
-        document.getElementById("popupUserCode").textContent = `🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
-        document.getElementById("popupMessage").textContent = message;
-        document.getElementById("codePopup").style.display = "block";
-
-        updateStatsUI();
       });
     });
   });
 }
+
+// --- Handle box opening ---
+async function handleBoxClick(box, loc, uid, userMarker) {
+  if(!stats.claimedTiers[box.id]) stats.claimedTiers[box.id] = [];
+  if(!userMarker){
+    document.getElementById("popupBoxName").textContent="Too far!";
+    document.getElementById("popupUserCode").textContent="";
+    document.getElementById("popupOtherCodes").innerHTML="";
+    document.getElementById("popupMessage").textContent="⚠️ Unable to determine your location. Enable GPS!";
+    document.getElementById("codePopup").style.display="block";
+    return;
+  }
+
+  const userLatLng = userMarker.getLatLng();
+  const boxCoords = box.exactCoords || [loc.coords[0], loc.coords[1]];
+  const distance = getDistanceFeet(userLatLng.lat,userLatLng.lng,boxCoords[0],boxCoords[1]);
+
+  if(distance>50){
+    document.getElementById("popupBoxName").textContent=`${box.name} @ ${loc.name}`;
+    document.getElementById("popupUserCode").textContent="";
+    document.getElementById("popupOtherCodes").innerHTML="";
+    document.getElementById("popupMessage").textContent=`⚠️ You are too far from the lock box! (${Math.round(distance)} ft away)`;
+    document.getElementById("codePopup").style.display="block";
+    return;
+  }
+
+  const tierIndex = Math.floor((stats.level-1)/8);
+  const ul = document.getElementById("popupOtherCodes");
+  ul.innerHTML="";
+  box.codes.forEach((code,t)=>{
+    if(t<=tierIndex) ul.innerHTML+=`<li>Tier ${t+1} Code: ${code}</li>`;
+  });
+
+  let message="";
+  if(!stats.claimedTiers[box.id].includes(tierIndex)){
+    stats.claimedTiers[box.id].push(tierIndex);
+    stats.points+=50;
+    checkLevelUp();
+    message=`🎉 You earned 50 points for Tier ${tierIndex+1}!`;
+    await saveUserData(uid, stats);
+  } else message="⚠️ Already opened for this tier. Reach a higher tier to unlock more!";
+
+  document.getElementById("popupBoxName").textContent=`${box.name} @ ${loc.name}`;
+  document.getElementById("popupUserCode").textContent=`🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
+  document.getElementById("popupMessage").textContent=message;
+  document.getElementById("codePopup").style.display="block";
+
+  updateStatsUI();
+}
 </script>
 </body>
 </html>
-
