@@ -21,7 +21,6 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 .tierLocked { background: #ccc; color: #666; }
 .carIcon { font-size: 24px; line-height: 24px; text-align: center; }
 .treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; }
-#codesPanel { display:none; }
 #codePopup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #cce6ff; border: 3px solid #3399ff; border-radius: 20px; padding: 20px 30px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 9999; color: #333; font-weight: bold; max-width: 90%; }
 #codePopup h2 { margin: 0 0 10px 0; color: #1582ee; }
 #codePopup p { margin: 5px 0; font-size: 16px; }
@@ -32,6 +31,7 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 #codePopup button:hover { background: #406be4; }
 </style>
 </head>
+
 <body>
 <header>
 <h1>Track Wheelz</h1>
@@ -68,36 +68,77 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// --- Auth ---
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { 
+  getAuth, onAuthStateChanged, signOut 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { 
+  getFirestore, doc, getDoc, setDoc, updateDoc 
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+// --- Firebase Config ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
+  authDomain: "trackwheelz.firebaseapp.com",
+  projectId: "trackwheelz",
+  storageBucket: "trackwheelz.firebasestorage.app",
+  messagingSenderId: "902612651501",
+  appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
+  measurementId: "G-QSCJ3V0KJL"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- UI Elements ---
 const loginLink = document.getElementById("loginLink");
 const logoutLink = document.getElementById("logoutLink");
-const user = localStorage.getItem("hotwheelsUser");
-if (!user) window.location.href = "login.html";
-else {
-  document.getElementById("welcomeMsg").textContent = `Welcome, ${user}!`;
-  loginLink.style.display = "none";
-  logoutLink.style.display = "inline";
-}
-logoutLink.addEventListener("click", () => {
-  localStorage.removeItem("hotwheelsUser");
+const welcomeMsg = document.getElementById("welcomeMsg");
+
+// --- Auth State ---
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+  } else {
+    loginLink.style.display = "none";
+    logoutLink.style.display = "inline";
+    welcomeMsg.textContent = `Welcome, ${user.email}!`;
+
+    // Load or create user progress
+    stats = await loadUserData(user.uid);
+    updateStatsUI();
+    setupMap(user.uid);
+  }
+});
+
+logoutLink.addEventListener("click", async () => {
+  await signOut(auth);
   window.location.href = "index.html";
 });
 
-// --- User Data ---
-function getUserData(username) {
-  const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
-  if (!data[username]) data[username] = { points: 0, level: 1, claimedTiers: {} };
-  return data[username];
+// --- Firestore Helpers ---
+async function loadUserData(uid) {
+  const ref = doc(db, "players", uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    return snap.data();
+  } else {
+    const fresh = { points: 0, level: 1, claimedTiers: {} };
+    await setDoc(ref, fresh);
+    return fresh;
+  }
 }
-function saveUserData(username, stats) {
-  const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
-  data[username] = stats;
-  localStorage.setItem("hotwheelsData", JSON.stringify(data));
-}
-const stats = getUserData(user);
 
-// --- Stats ---
+async function saveUserData(uid, data) {
+  const ref = doc(db, "players", uid);
+  await updateDoc(ref, data);
+}
+
+// --- Gameplay Logic ---
+let stats = { points: 0, level: 1, claimedTiers: {} };
+
 function updateStatsUI() {
   document.getElementById("points").textContent = stats.points;
   document.getElementById("level").textContent = stats.level;
@@ -106,15 +147,22 @@ function updateStatsUI() {
   document.getElementById("progressFill").style.width = progress + "%";
   document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
   updateTiersPanel();
-  saveUserData(user, stats);
 }
 
-// --- Tiers ---
+function checkLevelUp() {
+  const needed = stats.level * 200;
+  if (stats.points >= needed) {
+    stats.level++;
+    alert(`🎉 Level Up! You’re now Level ${stats.level}!`);
+  }
+}
+
 const tiers = [];
 for (let i = 0; i < 8; i++) {
   const start = i*8 + 1, end = start+7;
   tiers.push({ tier: i+1, start, end });
 }
+
 function updateTiersPanel() {
   const panel = document.getElementById("tiersPanel");
   panel.innerHTML = "";
@@ -128,70 +176,76 @@ function updateTiersPanel() {
   });
 }
 
-// --- Map & Boxes ---
-const locations = [
-  { name:"Park Entrance", coords:[34.0007,-81.0348], boxes:[{id:"box1",name:"Lock Box",codes:["1111","2222","3333","4444","5555","6666","7777","8888"]}]},
-  { name:"Home Base", coords:[34.24388,-80.8128805], boxes:[{id:"box2",name:"Lock Box",codes:["7777","8888","9999","0000","1111","2222","3333","4444"], exactCoords:[34.24388,-80.8128805]}]}
-];
+// --- Map Setup ---
+async function setupMap(uid) {
+  const map = L.map('map').setView([34.0007, -81.0348], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
 
-const map = L.map('map').setView([34.0007,-81.0348],15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const carIcon = L.divIcon({ className: "carIcon", html: "🚙", iconSize: [24, 24], iconAnchor: [12, 12] });
+  const treasureIcon = L.divIcon({ className: "treasureIcon", html: "💰", iconSize: [22, 22], iconAnchor: [11, 11] });
 
-const carIcon = L.divIcon({className:"carIcon", html:"🚙", iconSize:[24,24], iconAnchor:[12,12]});
-const treasureIcon = L.divIcon({className:"treasureIcon", html:"💰", iconSize:[22,22], iconAnchor:[11,11]});
+  const locations = [
+    { name: "Park Entrance", coords: [34.0007, -81.0348], boxes: [{ id: "box1", name: "Lock Box", codes: ["1111","2222","3333","4444","5555","6666","7777","8888"] }] },
+    { name: "Home Base", coords: [34.24388, -80.8128805], boxes: [{ id: "box2", name: "Lock Box", codes: ["7777","8888","9999","0000","1111","2222","3333","4444"] }] }
+  ];
 
-let userMarker = null;
-if(navigator.geolocation){
-  navigator.geolocation.watchPosition(pos=>{
-    const lat=pos.coords.latitude, lng=pos.coords.longitude;
-    if(!userMarker) userMarker=L.marker([lat,lng],{icon:carIcon}).addTo(map).bindPopup("📍 You are here");
-    else userMarker.setLatLng([lat,lng]);
-    map.setView([lat,lng]);
-  });
-}
+  // Track user position
+  let userMarker = null;
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      if (!userMarker) userMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map).bindPopup("📍 You are here");
+      else userMarker.setLatLng([lat, lng]);
+      map.setView([lat, lng]);
+    });
+  }
 
-// --- Lockbox Logic ---
-locations.forEach(loc=>{
-  loc.boxes.forEach((box,i)=>{
-    const boxCoords = box.exactCoords || [
-      loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),
-      loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
-    ];
-    const marker = L.marker(boxCoords,{icon:treasureIcon}).addTo(map);
-    marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
-    marker.on("dblclick",()=>{
-      if(!stats.claimedTiers[box.id]) stats.claimedTiers[box.id]=[];
+  // Lockboxes
+  locations.forEach(loc => {
+    loc.boxes.forEach((box, i) => {
+      const boxCoords = box.exactCoords || [
+        loc.coords[0] + 0.0003 * Math.cos(i * 2 * Math.PI / loc.boxes.length),
+        loc.coords[1] + 0.0003 * Math.sin(i * 2 * Math.PI / loc.boxes.length)
+      ];
+      const marker = L.marker(boxCoords, { icon: treasureIcon }).addTo(map);
+      marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>Double-click to see codes`);
+      marker.on("dblclick", async () => {
+        if (!stats.claimedTiers[box.id]) stats.claimedTiers[box.id] = [];
 
-      const tierIndex = Math.floor((stats.level-1)/8);
-      const ul = document.getElementById('popupOtherCodes');
-      ul.innerHTML='';
+        const tierIndex = Math.floor((stats.level - 1) / 8);
+        const ul = document.getElementById("popupOtherCodes");
+        ul.innerHTML = "";
 
-      // Show all previous tier codes
-      box.codes.forEach((code,t)=>{
-        if(t <= tierIndex) ul.innerHTML += `<li>Tier ${t+1} Code: ${code}</li>`;
+        box.codes.forEach((code, t) => {
+          if (t <= tierIndex) ul.innerHTML += `<li>Tier ${t + 1} Code: ${code}</li>`;
+        });
+
+        let message = "";
+        if (!stats.claimedTiers[box.id].includes(tierIndex)) {
+          stats.claimedTiers[box.id].push(tierIndex);
+          stats.points += 50;
+          checkLevelUp();
+          message = `🎉 You earned 50 points for Tier ${tierIndex + 1}!`;
+          await saveUserData(uid, stats);
+        } else {
+          message = "⚠️ Already opened for this tier. Reach a higher tier to unlock more!";
+        }
+
+        document.getElementById("popupBoxName").textContent = `${box.name} @ ${loc.name}`;
+        document.getElementById("popupUserCode").textContent = `🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
+        document.getElementById("popupMessage").textContent = message;
+        document.getElementById("codePopup").style.display = "block";
+
+        updateStatsUI();
       });
-
-      let message='';
-      if(!stats.claimedTiers[box.id].includes(tierIndex)){
-        stats.claimedTiers[box.id].push(tierIndex);
-        stats.points +=50;
-        message=`🎉 You earned 50 points for Tier ${tierIndex+1}!`;
-      } else {
-        message="⚠️ You already opened this box for this tier. Come back when you reach the next tier.";
-      }
-
-      document.getElementById('popupBoxName').textContent=`${box.name} @ ${loc.name}`;
-      document.getElementById('popupUserCode').textContent=`🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
-      document.getElementById('popupMessage').textContent = message;
-
-      document.getElementById('codePopup').style.display='block';
-      updateStatsUI();
-      saveUserData(user,stats);
     });
   });
-});
-
-updateStatsUI();
+}
 </script>
 </body>
 </html>
+
+
