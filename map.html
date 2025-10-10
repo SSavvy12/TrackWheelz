@@ -19,8 +19,8 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 .tierCompleted { background: #66cc66; color: white; }
 .tierCurrent { background: #ffcc33; color: #222; }
 .tierLocked { background: #ccc; color: #666; }
-.carIcon { font-size: 24px; line-height: 24px; text-align: center; }
-.treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; transition: transform 0.2s; }
+.carIcon { font-size: 40px; line-height: 40px; text-align: center; pointer-events:none; transform: scale(1); } /* bigger & fixed size */
+.treasureIcon { font-size: 36px; line-height: 36px; text-align: center; cursor: pointer; transition: transform 0.2s; pointer-events:auto; transform: scale(1); } /* bigger & fixed size */
 .treasureInRange { filter: drop-shadow(0 0 8px lime) !important; transform: scale(1.3); } 
 #codePopup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #cce6ff; border: 3px solid #3399ff; border-radius: 20px; padding: 20px 30px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 9999; color: #333; font-weight: bold; max-width: 90%; }
 #codePopup h2 { margin: 0 0 10px 0; color: #1582ee; }
@@ -164,8 +164,8 @@ async function setupMap(uid) {
   const map = L.map('map').setView([34.0007, -81.0348], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
 
-  const carIcon = L.divIcon({ className:"carIcon", html:"🚙", iconSize:[24,24], iconAnchor:[12,12] });
-  const treasureIcon = L.divIcon({ className:"treasureIcon", html:"💰", iconSize:[22,22], iconAnchor:[11,11] });
+  const carIcon = L.divIcon({ className:"carIcon", html:"🚙", iconSize:[40,40], iconAnchor:[20,20] });
+  const treasureIcon = L.divIcon({ className:"treasureIcon", html:"💰", iconSize:[36,36], iconAnchor:[18,18] });
 
   const locations = [
     { name:"Park Entrance", coords:[34.0007, -81.0348], boxes:[{ id:"box1", name:"Lock Box", codes:["1111","2222","3333","4444","5555","6666","7777","8888"] }] },
@@ -219,7 +219,7 @@ async function setupMap(uid) {
 
         const userLatLng=userMarker.getLatLng();
         const distance=getDistanceFeet(userLatLng.lat,userLatLng.lng,boxCoords[0],boxCoords[1]);
-        if(distance>200){ showPopup(`${box.name} @ ${loc.name}`,"","",`⚠️ You are too far! (${Math.round(distance)} ft away)`); return; }
+        if(distance>500){ showPopup(`${box.name} @ ${loc.name}`,"","",`⚠️ You are too far! (${Math.round(distance)} ft away)`); return; }
 
         const tierIndex=Math.floor((stats.level-1)/8);
         const ul=document.getElementById("popupOtherCodes"); ul.innerHTML="";
@@ -252,6 +252,7 @@ async function setupMap(uid) {
 </script>
 </body>
 </html>
+
 
 
 
