@@ -187,7 +187,7 @@ async function setupMap(uid) {
             loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
           ];
           const distance = getDistanceFeet(lat,lng,boxCoords[0],boxCoords[1]);
-          if (distance<=50 && box.marker) box.marker.getElement()?.classList.add("treasureInRange");
+          if (distance<=200 && box.marker) box.marker.getElement()?.classList.add("treasureInRange");
           else if (box.marker) box.marker.getElement()?.classList.remove("treasureInRange");
         });
       });
@@ -252,6 +252,7 @@ async function setupMap(uid) {
 </script>
 </body>
 </html>
+
 
 
 
