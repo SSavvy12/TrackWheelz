@@ -20,7 +20,8 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 .tierCurrent { background: #ffcc33; color: #222; }
 .tierLocked { background: #ccc; color: #666; }
 .carIcon { font-size: 24px; line-height: 24px; text-align: center; }
-.treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; }
+.treasureIcon { font-size: 22px; line-height: 22px; text-align: center; cursor: pointer; transition: transform 0.2s; }
+.treasureInRange { filter: drop-shadow(0 0 8px lime) !important; transform: scale(1.3); } 
 #codePopup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #cce6ff; border: 3px solid #3399ff; border-radius: 20px; padding: 20px 30px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); z-index: 9999; color: #333; font-weight: bold; max-width: 90%; }
 #codePopup h2 { margin: 0 0 10px 0; color: #1582ee; }
 #codePopup p { margin: 5px 0; font-size: 16px; }
@@ -29,7 +30,6 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 #popupMessage { margin-top: 10px; font-weight: bold; color: #d35400; }
 #codePopup button { margin-top: 10px; padding: 5px 15px; border: none; background: #ff66cc; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
 #codePopup button:hover { background: #406be4; }
-.treasureInRange { filter: drop-shadow(0 0 8px lime); } /* green glow when in range */
 </style>
 </head>
 
@@ -69,12 +69,12 @@ nav a { margin: 0 10px; color: white; text-decoration: none; font-weight: bold; 
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+// --- Firebase Config ---
 const firebaseConfig = {
   apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
   authDomain: "trackwheelz.firebaseapp.com",
@@ -88,10 +88,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- UI Elements ---
 const loginLink = document.getElementById("loginLink");
 const logoutLink = document.getElementById("logoutLink");
 const welcomeMsg = document.getElementById("welcomeMsg");
 
+// --- Auth State ---
 onAuthStateChanged(auth, async (user) => {
   if (!user) window.location.href = "login.html";
   else {
@@ -104,17 +106,19 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-logoutLink.addEventListener("click", async () => { await signOut(auth); window.location.href = "index.html"; });
+logoutLink.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
+});
 
+// --- Firestore Helpers ---
 async function loadUserData(uid) {
   const ref = doc(db, "players", uid);
   const snap = await getDoc(ref);
   if (snap.exists()) return snap.data();
-  else {
-    const fresh = { points:0, level:1, claimedTiers:{} };
-    await setDoc(ref,fresh);
-    return fresh;
-  }
+  const fresh = { points: 0, level: 1, claimedTiers: {} };
+  await setDoc(ref, fresh);
+  return fresh;
 }
 
 async function saveUserData(uid, data) {
@@ -122,143 +126,126 @@ async function saveUserData(uid, data) {
   await updateDoc(ref, data);
 }
 
-let stats = { points:0, level:1, claimedTiers:{} };
+// --- Gameplay ---
+let stats = { points: 0, level: 1, claimedTiers: {} };
 
 function updateStatsUI() {
   document.getElementById("points").textContent = stats.points;
   document.getElementById("level").textContent = stats.level;
   const needed = stats.level * 200;
-  const progress = Math.min((stats.points/needed)*100, 100);
-  document.getElementById("progressFill").style.width = progress+"%";
+  const progress = Math.min((stats.points / needed) * 100, 100);
+  document.getElementById("progressFill").style.width = progress + "%";
   document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
   updateTiersPanel();
 }
 
 function checkLevelUp() {
-  const needed = stats.level*200;
+  const needed = stats.level * 200;
   if (stats.points >= needed) { stats.level++; alert(`🎉 Level Up! You’re now Level ${stats.level}!`); }
 }
 
-const tiers=[];
-for(let i=0;i<8;i++){const start=i*8+1,end=start+7; tiers.push({tier:i+1,start,end});}
-
-function updateTiersPanel(){
-  const panel=document.getElementById("tiersPanel"); panel.innerHTML="";
+const tiers = [];
+for (let i = 0; i < 8; i++) { const start = i*8 + 1, end = start+7; tiers.push({ tier: i+1, start, end }); }
+function updateTiersPanel() {
+  const panel = document.getElementById("tiersPanel");
+  panel.innerHTML = "";
   tiers.forEach(t=>{
-    const box=document.createElement("div");
-    if(stats.level>t.end) box.className="tierBox tierCompleted";
-    else if(stats.level>=t.start&&stats.level<=t.end) box.className="tierBox tierCurrent";
-    else box.className="tierBox tierLocked";
-    box.innerHTML=`Tier ${t.tier}<br>(Lv ${t.start}-${t.end})`;
+    const box = document.createElement("div");
+    if (stats.level > t.end) box.className = "tierBox tierCompleted";
+    else if (stats.level >= t.start && stats.level <= t.end) box.className = "tierBox tierCurrent";
+    else box.className = "tierBox tierLocked";
+    box.innerHTML = `Tier ${t.tier}<br>(Lv ${t.start}-${t.end})`;
     panel.appendChild(box);
   });
 }
 
-async function setupMap(uid){
-  const map=L.map('map',{tap:false}).setView([34.0007,-81.0348],15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+// --- Map Setup ---
+async function setupMap(uid) {
+  const map = L.map('map').setView([34.0007, -81.0348], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
 
-  const carIcon=L.divIcon({className:"carIcon",html:"🚙",iconSize:[24,24],iconAnchor:[12,12]});
-  const treasureIcon=L.divIcon({className:"treasureIcon",html:"💰",iconSize:[22,22],iconAnchor:[11,11]});
+  const carIcon = L.divIcon({ className:"carIcon", html:"🚙", iconSize:[24,24], iconAnchor:[12,12] });
+  const treasureIcon = L.divIcon({ className:"treasureIcon", html:"💰", iconSize:[22,22], iconAnchor:[11,11] });
 
-  const locations=[
-    {name:"Park Entrance",coords:[34.0007,-81.0348],boxes:[{id:"box1",name:"Lock Box",codes:["1111","2222","3333","4444","5555","6666","7777","8888"]}]},
-    {name:"Home Base",coords:[34.24388,-80.8128805],boxes:[{id:"box2",name:"Lock Box",codes:["7777","8888","9999","0000","1111","2222","3333","4444"]}]}
+  const locations = [
+    { name:"Park Entrance", coords:[34.0007, -81.0348], boxes:[{ id:"box1", name:"Lock Box", codes:["1111","2222","3333","4444","5555","6666","7777","8888"] }] },
+    { name:"Home Base", coords:[34.24388, -80.8128805], boxes:[{ id:"box2", name:"Lock Box", codes:["7777","8888","9999","0000","1111","2222","3333","4444"] }] }
   ];
 
-  let userMarker=null;
-  if(navigator.geolocation){
-    navigator.geolocation.watchPosition(pos=>{
-      const lat=pos.coords.latitude,lng=pos.coords.longitude;
-      if(!userMarker) userMarker=L.marker([lat,lng],{icon:carIcon}).addTo(map).bindPopup("📍 You are here");
+  let userMarker = null;
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      if (!userMarker) userMarker = L.marker([lat,lng],{icon:carIcon}).addTo(map).bindPopup("📍 You are here");
       else userMarker.setLatLng([lat,lng]);
-      map.setView([lat,lng],map.getZoom(),{animate:true});
+      map.setView([lat,lng], map.getZoom(), { animate:true });
 
       locations.forEach(loc=>{
         loc.boxes.forEach((box,i)=>{
-          const boxCoords=box.exactCoords||[loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)];
-          const distance=getDistanceFeet(lat,lng,boxCoords[0],boxCoords[1]);
-          if(distance<=50&&box.marker) box.marker.getElement()?.classList.add("treasureInRange");
-          else if(box.marker) box.marker.getElement()?.classList.remove("treasureInRange");
+          const boxCoords = box.exactCoords || [
+            loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),
+            loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
+          ];
+          const distance = getDistanceFeet(lat,lng,boxCoords[0],boxCoords[1]);
+          if (distance<=50 && box.marker) box.marker.getElement()?.classList.add("treasureInRange");
+          else if (box.marker) box.marker.getElement()?.classList.remove("treasureInRange");
         });
       });
-
-    },err=>console.warn(err),{enableHighAccuracy:true,maximumAge:500,timeout:5000});
+    }, console.error, { enableHighAccuracy:true, maximumAge:5000, timeout:5000 });
   }
 
   function getDistanceFeet(lat1,lon1,lat2,lon2){
-    const R=6371e3,toRad=x=>x*Math.PI/180;
-    const φ1=toRad(lat1),φ2=toRad(lat2);
-    const Δφ=toRad(lat2-lat1),Δλ=toRad(lon2-lon1);
+    const R=6371e3, toRad=x=>x*Math.PI/180, φ1=toRad(lat1),φ2=toRad(lat2), Δφ=toRad(lat2-lat1),Δλ=toRad(lon2-lon1);
     const a=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
     const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
     return R*c*3.28084;
   }
 
-  const isTouchDevice='ontouchstart' in window||navigator.maxTouchPoints>0;
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints>0;
 
   locations.forEach(loc=>{
     loc.boxes.forEach((box,i)=>{
-      const boxCoords=box.exactCoords||[loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)];
-      const marker=L.marker(boxCoords,{icon:treasureIcon}).addTo(map);
+      const boxCoords = box.exactCoords || [
+        loc.coords[0]+0.0003*Math.cos(i*2*Math.PI/loc.boxes.length),
+        loc.coords[1]+0.0003*Math.sin(i*2*Math.PI/loc.boxes.length)
+      ];
+      const marker = L.marker(boxCoords,{icon:treasureIcon}).addTo(map);
       box.marker=marker;
-      marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>${isTouchDevice?'Tap':'Double-click'} to see codes`);
+      marker.bindPopup(`<b>💰 ${loc.name} - ${box.name}</b><br>${isTouchDevice ? 'Tap' : 'Double-click'} to see codes`);
 
-      const openBox=async()=>{
-        if(!stats.claimedTiers[box.id]) stats.claimedTiers[box.id]=[];
-        if(!userMarker){
-          document.getElementById("popupBoxName").textContent="Too far!";
-          document.getElementById("popupUserCode").textContent="";
-          document.getElementById("popupOtherCodes").innerHTML="";
-          document.getElementById("popupMessage").textContent="⚠️ Unable to determine your location. Enable GPS!";
-          document.getElementById("codePopup").style.display="block"; return;
-        }
+      const openBox = async ()=>{
+        if (!stats.claimedTiers[box.id]) stats.claimedTiers[box.id]=[];
+        if (!userMarker){ showPopup("Too far!","","","⚠️ Enable GPS to open this box."); return; }
 
         const userLatLng=userMarker.getLatLng();
         const distance=getDistanceFeet(userLatLng.lat,userLatLng.lng,boxCoords[0],boxCoords[1]);
-        if(distance>50){
-          document.getElementById("popupBoxName").textContent=`${box.name} @ ${loc.name}`;
-          document.getElementById("popupUserCode").textContent="";
-          document.getElementById("popupOtherCodes").innerHTML="";
-          document.getElementById("popupMessage").textContent=`⚠️ You are too far from the lock box! (${Math.round(distance)} ft away)`;
-          document.getElementById("codePopup").style.display="block"; return;
-        }
+        if(distance>50){ showPopup(`${box.name} @ ${loc.name}`,"","",`⚠️ You are too far! (${Math.round(distance)} ft away)`); return; }
 
         const tierIndex=Math.floor((stats.level-1)/8);
-        const ul=document.getElementById("popupOtherCodes");
-        ul.innerHTML="";
-        box.codes.forEach((code,t)=>{if(t<=tierIndex) ul.innerHTML+=`<li>Tier ${t+1} Code: ${code}</li>`});
+        const ul=document.getElementById("popupOtherCodes"); ul.innerHTML="";
+        box.codes.forEach((code,t)=>{ if(t<=tierIndex) ul.innerHTML+=`<li>Tier ${t+1} Code: ${code}</li>`; });
 
         let message="";
         if(!stats.claimedTiers[box.id].includes(tierIndex)){
           stats.claimedTiers[box.id].push(tierIndex);
-          stats.points+=50;
-          checkLevelUp();
+          stats.points+=50; checkLevelUp();
           message=`🎉 You earned 50 points for Tier ${tierIndex+1}!`;
           await saveUserData(uid,stats);
         } else message="⚠️ Already opened for this tier. Reach a higher tier to unlock more!";
+        showPopup(`${box.name} @ ${loc.name}`,`🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`,"",message);
+        updateStatsUI();
+      };
 
-        document.getElementById("popupBoxName").textContent=`${box.name} @ ${loc.name}`;
-        document.getElementById("popupUserCode").textContent=`🎯 Your Level (${stats.level}) Code: ${box.codes[tierIndex]}`;
+      const showPopup=(title,userCode,otherCodes,message)=>{
+        document.getElementById("popupBoxName").textContent=title;
+        document.getElementById("popupUserCode").textContent=userCode;
+        document.getElementById("popupOtherCodes").innerHTML=otherCodes;
         document.getElementById("popupMessage").textContent=message;
         document.getElementById("codePopup").style.display="block";
-        updateStatsUI();
       };
 
       if(isTouchDevice) marker.on("click",openBox);
       else marker.on("dblclick",openBox);
-    });
-  });
-}
-</script>
-</body>
-</html>
-
-      if (isTouchDevice) {
-        marker.on("click", openBox);
-      } else {
-        marker.on("dblclick", openBox);
-      }
     });
   });
 }
