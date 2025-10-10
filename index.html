@@ -1,151 +1,122 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <title>Track Wheelz - Home</title>
-  <link rel="stylesheet" href="style.css"/>
+<meta charset="utf-8"/>
+<title>Track Wheelz</title>
+<link rel="stylesheet" href="style.css"/>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f8ff; text-align: center; }
+header { background: #0066cc; color: white; padding: 10px; }
+nav a { color: white; text-decoration: none; margin: 0 10px; font-weight: bold; }
+.container { padding: 30px; }
+h1 { font-size: 40px; margin-bottom: 10px; }
+#stats { background: #ffeb99; border: 4px solid #ff6600; padding: 15px; border-radius: 15px; display: inline-block; margin-top: 20px; text-align: center; }
+#progressBar { background: #ddd; border-radius: 12px; overflow: hidden; margin: 10px auto; height: 25px; width: 90%; }
+#progressFill { background: #00cc66; height: 100%; width: 0%; transition: width 0.5s; }
+#loginStatus { margin-top: 20px; font-size: 18px; }
+button { background: #007bff; border: none; padding: 10px 20px; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; }
+button:hover { background: #0056b3; }
+</style>
 </head>
+
 <body>
-  <header>
-    <h1>Track Wheelz</h1>
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="login.html" id="loginLink">Login</a>
-      <a href="signup.html">Sign Up</a>
-      <a href="map.html">Map</a>
-      <a href="#" id="logoutLink" style="display:none;">Logout</a>
-    </nav>
-  </header>
-  <div class="container">
-    <h2>Track Your Hot Wheels!</h2>
-    <p>Find and unlock Hot Wheels lock boxes near you.</p>
+<header>
+  <h1>Track Wheelz</h1>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="login.html" id="loginLink">Login</a>
+    <a href="map.html">Map</a>
+    <a href="#" id="logoutLink" style="display:none;">Logout</a>
+  </nav>
+</header>
 
-    <!-- Start Tracking -->
-    <button id="startBtn">Start Tracking</button>
+<div class="container">
+  <h2 id="welcomeMsg">Welcome to Track Wheelz!</h2>
 
-    <!-- User-only content -->
-    <div id="userContent" style="display:none;">
-      <!-- 🎁 Daily Bonus -->
-      <div id="dailyBonus" style="margin-top:20px; text-align:center;">
-        <button id="dailyBonusBtn" style="padding:10px; border-radius:8px; background:#ff6600; color:white; font-size:16px; cursor:pointer;">
-          🎁 Claim Daily Bonus
-        </button>
-        <p id="bonusMsg" style="margin-top:5px; font-weight:bold; color:#0066cc;"></p>
-      </div>
-
-      <!-- Progress Panel -->
-      <div id="stats" style="margin-top:20px; background:#ffeb99; border:4px solid #ff6600; padding:15px; border-radius:15px; text-align:center;">
-        <p style="font-size:20px;">⭐ Points: <span id="points">0</span></p>
-        <p style="font-size:20px;">🏁 Level: <span id="level">1</span></p>
-        <div style="background:#ddd; border-radius:12px; overflow:hidden; margin:10px auto; height:25px; width:90%;">
-          <div id="progressFill" style="background:#00cc66; height:100%; width:0%; transition:width 0.5s;"></div>
-        </div>
-        <p id="nextLevelText"></p>
-      </div>
-    </div>
+  <div id="stats" style="display:none;">
+    <p style="font-size: 22px;">⭐ Points: <span id="points">0</span></p>
+    <p style="font-size: 22px;">🏁 Level: <span id="level">1</span></p>
+    <div id="progressBar"><div id="progressFill"></div></div>
+    <p id="nextLevelText"></p>
   </div>
 
-  <script>
-    const startBtn = document.getElementById("startBtn");
-    const loginLink = document.getElementById("loginLink");
-    const logoutLink = document.getElementById("logoutLink");
-    const userContent = document.getElementById("userContent");
-    const user = localStorage.getItem("hotwheelsUser");
+  <div id="loginStatus">
+    <p>Sign in to track your progress and unlock rewards across devices!</p>
+    <a href="login.html"><button>Sign In</button></a>
+  </div>
+</div>
 
-    // Navbar state
-    if (user) {
-      loginLink.style.display = "none";
-      logoutLink.style.display = "inline";
-      userContent.style.display = "block"; // show bonus + stats
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+// --- Firebase Config ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB1c1NRWt9Rs2_bYb7VshMzR2d8PrENPSM",
+  authDomain: "trackwheelz.firebaseapp.com",
+  projectId: "trackwheelz",
+  storageBucket: "trackwheelz.firebasestorage.app",
+  messagingSenderId: "902612651501",
+  appId: "1:902612651501:web:5b78cd6afcf5e91bde6be4",
+  measurementId: "G-QSCJ3V0KJL"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- UI Elements ---
+const loginLink = document.getElementById("loginLink");
+const logoutLink = document.getElementById("logoutLink");
+const welcomeMsg = document.getElementById("welcomeMsg");
+const statsDiv = document.getElementById("stats");
+const loginStatus = document.getElementById("loginStatus");
+
+// --- Auth State ---
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // Logged in
+    loginLink.style.display = "none";
+    logoutLink.style.display = "inline";
+    loginStatus.style.display = "none";
+    statsDiv.style.display = "block";
+    welcomeMsg.textContent = `Welcome back, ${user.email}!`;
+
+    // Load progress
+    const ref = doc(db, "players", user.uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      updateStatsUI(data.points || 0, data.level || 1);
+    } else {
+      updateStatsUI(0, 1);
     }
 
-    // Start button logic
-    startBtn.addEventListener("click", () => {
-      if (localStorage.getItem("hotwheelsUser")) {
-        window.location.href = "map.html";
-      } else {
-        window.location.href = "login.html";
-      }
-    });
+  } else {
+    // Not logged in
+    loginLink.style.display = "inline";
+    logoutLink.style.display = "none";
+    statsDiv.style.display = "none";
+    loginStatus.style.display = "block";
+    welcomeMsg.textContent = "Welcome to Track Wheelz!";
+  }
+});
 
-    // Logout logic
-    logoutLink.addEventListener("click", () => {
-      localStorage.removeItem("hotwheelsUser");
-      window.location.href = "index.html";
-    });
+// --- Logout ---
+logoutLink.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
+});
 
-    // 🎮 Stats system
-    function getUserData(username) {
-      const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
-      if (!data[username]) data[username] = { points: 0, level: 1, lastBonus: null };
-      return data[username];
-    }
-    function saveUserData(username, stats) {
-      const data = JSON.parse(localStorage.getItem("hotwheelsData") || "{}");
-      data[username] = stats;
-      localStorage.setItem("hotwheelsData", JSON.stringify(data));
-    }
-
-    if (user) {
-      const stats = getUserData(user);
-
-      function checkLevelUp() {
-        const needed = stats.level * 150;
-        if (stats.points >= needed) {
-          stats.level++;
-          alert(`🎉 Woohoo ${user}! You reached Level ${stats.level}!`);
-        }
-      }
-
-      function updateStatsUI() {
-        document.getElementById("points").textContent = stats.points;
-        document.getElementById("level").textContent = stats.level;
-
-        const needed = stats.level * 150;
-        const progress = Math.min((stats.points / needed) * 100, 100);
-        document.getElementById("progressFill").style.width = progress + "%";
-        document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
-
-        saveUserData(user, stats);
-        checkDailyBonus();
-      }
-
-      // 🎁 Daily Bonus
-      const bonusBtn = document.getElementById("dailyBonusBtn");
-      const bonusMsg = document.getElementById("bonusMsg");
-
-      function getTodayDate() {
-        const today = new Date();
-        return today.toISOString().split("T")[0]; // YYYY-MM-DD
-      }
-
-      function checkDailyBonus() {
-        const lastClaim = stats.lastBonus || null;
-        const today = getTodayDate();
-        if (lastClaim === today) {
-          bonusBtn.disabled = true;
-          bonusBtn.style.background = "#ccc";
-          bonusMsg.textContent = "✅ Daily bonus already claimed!";
-        } else {
-          bonusBtn.disabled = false;
-          bonusBtn.style.background = "#ff6600";
-          bonusMsg.textContent = "🎁 You can claim your daily bonus!";
-        }
-      }
-
-      bonusBtn.addEventListener("click", () => {
-        const today = getTodayDate();
-        if (stats.lastBonus !== today) {
-          stats.points += 50; // reward
-          stats.lastBonus = today;
-          checkLevelUp();
-          updateStatsUI();
-          alert("🎉 You claimed your +50 Daily Bonus!");
-        }
-      });
-
-      updateStatsUI();
-    }
-  </script>
+// --- Update Stats UI ---
+function updateStatsUI(points, level) {
+  document.getElementById("points").textContent = points;
+  document.getElementById("level").textContent = level;
+  const needed = level * 200;
+  const progress = Math.min((points / needed) * 100, 100);
+  document.getElementById("progressFill").style.width = progress + "%";
+  document.getElementById("nextLevelText").textContent = `Next level at ${needed} points`;
+}
+</script>
 </body>
 </html>
